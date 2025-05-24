@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>台股爆量分析</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
+    h1 { text-align: center; }
+    #search { width: 100%; padding: 10px; font-size: 16px; margin-bottom: 20px; box-sizing: border-box; }
+    table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 30px; }
+    th, td { padding: 12px; border: 1px solid #ccc; text-align: center; }
+    th { background-color: #f0f0f0; }
+    .highlight { background-color: #fff9cc; }
+    canvas { max-width: 600px; margin: auto; display: block; }
+  </style>
+</head>
+<body>
+
+  <h1>📈 台股爆量清單（從 Supabase 抓資料）</h1>
+  <div style="margin-bottom: 10px;">
+    📅 起始日：
+    <input type="date" id="start-date">
+    ～ 結束日：
+    <input type="date" id="end-date">
+    <button onclick="applyFilters()">查詢</button>
+  </div>
+  <input type="text" id="search" placeholder="🔍 搜尋股票代碼或名稱...">
+
+  <table id="stock-table">
+    <thead>
+      <tr>
+        <th>股票代碼</th>
+        <th>名稱</th>
+        <th>日期</th>
+        <th>開盤價</th>
+        <th>收盤價</th>
+        <th>成交量</th>
+        <th>五日均量</th>
+        <th>爆量倍率</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <canvas id="volumeChart" height="200"></canvas>
+
+  <script>
+    // ⚠️ 請替換為你自己的 Supabase 設定
+    const supabaseUrl = "https://lftzvpmjkokupxsxhxiu.supabase.co";
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmdHp2cG1qa29rdXB4c3hoeGl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYwOTY2MzgsImV4cCI6MjA2MTY3MjYzOH0.pwceHLeerh3CAj3RUAfXSKF0TUvlXg3QS2olQSoyVmo";
+    
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey); // ← 修正這行
+
+    let stockData = [];
+
+    async function loadData() {
+        const { data, error } = await supabase
+          .from("volume_alerts")
+          .select("*")
+          .order("trade_date", { ascending: false })
+          .limit(1000); // 避免爆量
+      
+        if (error) {
+          console.error("Supabase 錯誤：", error.message);
+          return;
+        }
+      
+        console.log("載入成功：", data);
+        stockData = data;               // ← 🔴 你原本漏了這行
+        renderTable();                  // ← 🔴 這行負責畫畫面
+      }
+
+    const tableBody = document.querySelector("#stock-table tbody");
+    const searchInput = document.querySelector("#search");
+    const ctx = document.getElementById("volumeChart").getContext("2d");
+    let chart;
+
+    function renderTable(filter = "") {
+        tableBody.innerHTML = "";
+        const keyword = filter.toLowerCase();
+      
+        const startDate = document.getElementById("start-date").value;
+        const endDate = document.getElementById("end-date").value;
+      
+        const filtered = stockData.filter(stock => {
+          const ratio = stock.volume / stock.avg_5;
+          const codeMatch = stock.code.includes(keyword) || stock.name.includes(keyword);
+      
+          // 日期過濾
+          const date = stock.trade_date.slice(0, 10); // e.g. "2025-05-02"
+          const afterStart = !startDate || date >= startDate;
+          const beforeEnd = !endDate || date <= endDate;
+      
+          return codeMatch && afterStart && beforeEnd;
+        });
+      
+        const labels = [], volumes = [], avgs = [];
+      
+        filtered.forEach(stock => {
+          const ratio = stock.volume / stock.avg_5;
+          const row = document.createElement("tr");
+          row.classList.add("highlight");
+          row.innerHTML = `
+            <td>${stock.code}</td>
+            <td>${stock.name}</td>
+            <td>${stock.trade_date}</td>
+            <td>${stock.open.toLocaleString()}</td>
+            <td>${stock.close.toLocaleString()}</td>
+            <td>${stock.volume.toLocaleString()}</td>
+            <td>${stock.avg_5.toLocaleString()}</td>
+            <td>${ratio.toFixed(2)} 倍</td>
+          `;
+          tableBody.appendChild(row);
+      
+          labels.push(`${stock.name} (${stock.code})`);
+          volumes.push(stock.volume);
+          avgs.push(stock.avg_5);
+        });
+      
+        renderChart(labels, volumes, avgs);
+      }
+
+    function renderChart(labels, volumes, avgs) {
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            { label: "成交量", data: volumes, backgroundColor: "rgba(75, 192, 192, 0.6)" },
+            { label: "五日均量", data: avgs, backgroundColor: "rgba(255, 159, 64, 0.6)" }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'top' },
+            title: { display: true, text: '成交量 vs 五日均量' }
+          }
+        }
+      });
+    }
+
+    function applyFilters() {
+        const keyword = searchInput.value.trim();
+        renderTable(keyword);
+      }
+
+    searchInput.addEventListener("input", () => {
+      renderTable(searchInput.value.trim());
+    });
+
+    loadData(); // 初始載入
+  </script>
+
+</body>
+</html>
