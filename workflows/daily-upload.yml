@@ -2,9 +2,8 @@ name: 📈 Upload to Supabase Daily
 
 on:
   schedule:
-    - cron: '10 1 * * 1-5'  # 台灣時間上午 9:10（GitHub 用 UTC，要 -8 小時）
-  workflow_dispatch:       # 手動觸發
-
+    - cron: '0 7 * * 1-5'  # ✅ 台灣時間 15:00（UTC+8 → UTC 07:00）
+  workflow_dispatch:       # ✅ 可手動觸發
 jobs:
   upload:
     runs-on: ubuntu-latest
