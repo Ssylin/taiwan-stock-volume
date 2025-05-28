@@ -39,6 +39,7 @@
         <th>成交量</th>
         <th>五日均量</th>
         <th>爆量倍率</th>
+        <th>漲跌數</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -111,6 +112,8 @@
             <td>${stock.volume.toLocaleString()}</td>
             <td>${stock.avg_5.toLocaleString()}</td>
             <td>${ratio.toFixed(2)} 倍</td>
+            <td>${(stock.close-stock.open).toLocaleString()}</td>
+            
           `;
           tableBody.appendChild(row);
       
