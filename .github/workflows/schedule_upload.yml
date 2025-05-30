@@ -4,6 +4,7 @@ on:
     # 台北時間每日下午2:00 (UTC+8)
     # 在 GitHub Actions 中必須使用 UTC 時間，所以是 06:00 UTC
     - cron: '0 6 * * *'
+    workflow_dispatch
   
 jobs:
   upload:
