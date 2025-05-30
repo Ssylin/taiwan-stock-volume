@@ -1,0 +1,27 @@
+name: Scheduled Supabase Upload
+on:
+  schedule:
+    # 台北時間每日下午2:00 (UTC+8)
+    # 在 GitHub Actions 中必須使用 UTC 時間，所以是 06:00 UTC
+    - cron: '0 6 * * *'
+  
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+        
+    - name: Install dependencies (如果有需要的話)
+      run: |
+        python -m pip install --upgrade pip
+        pip install supabase  # 或其他你的腳本需要的套件
+        
+    - name: Run Supabase Upload Script
+      run: python .github/workflows/superbase_upload.py
