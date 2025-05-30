@@ -163,8 +163,8 @@ def save_to_supabase(code, name, volume, avg_5, open, high, low, close, trade_da
     print(f"✅ 上傳成功: {code} {name} {trade_date}")
 
 # 分析股票清單
-#target_stocks = ['2330', '2317', '2303', '2603']
-target_stocks = load_stock_list()
+target_stocks = ['2330', '2317', '2303', '2603']
+#target_stocks = load_stock_list()
 for symbol in target_stocks:
     #df = get_twstock_df_5(symbol, n_days=5)
     df = get_twstock_df(symbol)
