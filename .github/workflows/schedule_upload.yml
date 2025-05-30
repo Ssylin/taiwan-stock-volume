@@ -2,10 +2,8 @@ name: Scheduled Supabase Upload
 
 on:
   schedule:
-    # 台北時間每日下午2:00 (UTC+8)
-    # 在 GitHub Actions 中必須使用 UTC 時間，所以是 06:00 UTC
-    - cron: '0 6 * * *'
-  workflow_dispatch:  # 這行要與 'on:' 對齊，且前面不能有空格
+    - cron: '0 6 * * *'  # UTC時間6:00（台北14:00）
+  workflow_dispatch:
 
 jobs:
   upload:
@@ -18,12 +16,22 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.x'
+        python-version: '3.10'  # 指定明確版本
+        
+    - name: Verify files
+      run: |
+        echo "Current directory:"
+        pwd
+        echo "Workflows directory contents:"
+        ls -la .github/workflows/
         
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install supabase
+        pip install supabase  # 確保包含所有必要包
         
     - name: Run Supabase Upload Script
-      run: python .github/workflows/superbase_upload.py
+      working-directory: .github/workflows/
+      run: |
+        echo "Running script..."
+        python superbase_upload.py
