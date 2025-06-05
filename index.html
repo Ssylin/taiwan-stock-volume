@@ -73,7 +73,7 @@
           .from("volume_alerts")
           .select("*")
           .order("trade_date", { ascending: false })
-          .limit(1000); // 避免爆量
+          .limit(6000); // 避免爆量
       
         if (error) {
           console.error("Supabase 錯誤：", error.message);
