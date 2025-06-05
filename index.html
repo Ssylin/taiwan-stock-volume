@@ -68,22 +68,47 @@
 
     let stockData = [];
 
-    async function loadData() {
-        const { data, error } = await supabase
-          .from("volume_alerts")
-          .select("*")
-          .order("trade_date", { ascending: false })
-          .limit(6000); // 避免爆量
-      
-        if (error) {
-          console.error("Supabase 錯誤：", error.message);
-          return;
-        }
-      
-        console.log("載入成功：", data);
-        stockData = data;
-        renderTable();
-      }
+	
+
+async function loadData() {
+  const pageSize = 1000;
+  let allData = [];
+  let totalCount = 0;
+
+  // 先查總筆數
+  const { count, error: countError } = await supabase
+    .from("volume_alerts")
+    .select("*", { count: "exact", head: true });
+
+  if (countError) {
+    console.error("查詢總筆數失敗：", countError.message);
+    return;
+  }
+
+  totalCount = count;
+  console.log("總資料數量：", totalCount);
+
+  // 分批撈資料
+  for (let from = 0; from < totalCount; from += pageSize) {
+    const to = Math.min(from + pageSize - 1, totalCount - 1);
+    const { data, error } = await supabase
+      .from("volume_alerts")
+      .select("*")
+      .order("trade_date", { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      console.error(`載入第 ${from}~${to} 筆失敗：`, error.message);
+      break;
+    }
+
+    allData = allData.concat(data);
+  }
+
+  console.log("實際載入筆數：", allData.length);
+  stockData = allData;
+  renderTable();
+}
 
     const tableBody = document.querySelector("#stock-table tbody");
     const searchInput = document.querySelector("#search");
