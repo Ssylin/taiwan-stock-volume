@@ -35,6 +35,9 @@
       <label><input type="checkbox" id="sort-by-code" onchange="applyFilters()"> 按股票代碼排序</label>
     </div>
     <div>
+      <label><input type="checkbox" id="positive-large" onchange="applyFilters()">爆量</label>
+    </div>
+    <div>
       <button onclick="applyFilters()">查詢</button>
     </div>
   </div>
@@ -52,6 +55,7 @@
         <th>五日均量</th>
         <th>爆量倍率</th>
         <th>漲跌數</th>
+        <th>漲跌%</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -60,6 +64,11 @@
   <canvas id="volumeChart" height="200"></canvas>
 
   <script>
+     // 預設起始日為今天
+  document.addEventListener("DOMContentLoaded", () => {
+    const today = new Date().toISOString().split("T")[0];
+    document.getElementById("start-date").value = today;
+  });
     // ⚠️ 請替換為你自己的 Supabase 設定
     const supabaseUrl = "https://lftzvpmjkokupxsxhxiu.supabase.co";
     const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmdHp2cG1qa29rdXB4c3hoeGl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYwOTY2MzgsImV4cCI6MjA2MTY3MjYzOH0.pwceHLeerh3CAj3RUAfXSKF0TUvlXg3QS2olQSoyVmo";
@@ -122,6 +131,7 @@ async function loadData() {
         const startDate = document.getElementById("start-date").value;
         const endDate = document.getElementById("end-date").value;
         const positiveChangeOnly = document.getElementById("positive-change").checked;
+        const positivelarge = document.getElementById("positive-large").checked;
         const sortByCode = document.getElementById("sort-by-code").checked;
       
         let filtered = stockData.filter(stock => {
@@ -135,8 +145,10 @@ async function loadData() {
           
           // 漲跌過濾
           const isPositive = !positiveChangeOnly || change > 0;
+          const ratio = stock.volume / stock.avg_5;
+          const isPositivel = !positivelarge || ratio >= 1.49;
       
-          return codeMatch && afterStart && beforeEnd && isPositive;
+          return codeMatch && afterStart && beforeEnd && isPositive && isPositivel;
         });
       
         // 排序
@@ -149,6 +161,7 @@ async function loadData() {
         filtered.forEach(stock => {
           const ratio = stock.volume / stock.avg_5;
           const change = stock.close - stock.open;
+          const changep = change / stock.open *100;
           const row = document.createElement("tr");
           row.classList.add("highlight");
           row.innerHTML = `
@@ -161,6 +174,7 @@ async function loadData() {
             <td>${stock.avg_5.toLocaleString()}</td>
             <td>${ratio.toFixed(2)} 倍</td>
             <td>${change.toLocaleString()}</td>
+            <td>${changep.toFixed(2)}</td>
           `;
           tableBody.appendChild(row);
       
