@@ -154,7 +154,7 @@ async function loadData() {
           // 漲跌過濾
           const isPositive = !positiveChangeOnly || change > 0;
           const ratio = stock.volume / stock.avg_5;
-          const isPositivel = !positivelarge || ratio >= 1.49;
+          const isPositivel = !positivelarge || ratio >= 1.99;
       
           return codeMatch && afterStart && beforeEnd && isPositive && isPositivel;
         });
@@ -229,3 +229,4 @@ async function loadData() {
 
 </body>
 </html>
+
