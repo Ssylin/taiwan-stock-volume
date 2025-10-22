@@ -5,7 +5,7 @@
   <title>台股爆量分析</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-	<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
     h1 { text-align: center; }
@@ -41,11 +41,13 @@
     <div>
       <button onclick="applyFilters()">查詢</button>
     </div>
-    <div">
-       <button onclick="exportToExcel()">📤 匯出 Excel</button>
+    <div>
+      <button onclick="exportToExcel()">📤 匯出 Excel</button>
     </div>
   </div>
-  <input type="text" id="search" placeholder="🔍 搜尋股票代碼或名稱...">
+
+  <!-- ✅ 已加入萬用字元搜尋說明 -->
+  <input type="text" id="search" placeholder="🔍 搜尋股票代碼或名稱（支援 * 萬用字元，例如 2*5、*23*）...">
 
   <table id="stock-table">
     <thead>
@@ -66,167 +68,139 @@
   </table>
 
   <canvas id="volumeChart" height="200"></canvas>
-
   <script>
-     // 預設起始日為今天
-  document.addEventListener("DOMContentLoaded", () => {
-    const today = new Date().toISOString().split("T")[0];
-    document.getElementById("start-date").value = today;
-  });
-    // ⚠️ 請替換為你自己的 Supabase 設定
+    // ✅ 預設起始日為今天
+    document.addEventListener("DOMContentLoaded", () => {
+      const today = new Date().toISOString().split("T")[0];
+      document.getElementById("start-date").value = today;
+    });
+
+    // ✅ Supabase 設定
     const supabaseUrl = "https://lftzvpmjkokupxsxhxiu.supabase.co";
     const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmdHp2cG1qa29rdXB4c3hoeGl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYwOTY2MzgsImV4cCI6MjA2MTY3MjYzOH0.pwceHLeerh3CAj3RUAfXSKF0TUvlXg3QS2olQSoyVmo";
-    
     const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
     let stockData = [];
-
-function exportToExcel() {
-  const table = document.getElementById("stock-table");
-  const wb = XLSX.utils.table_to_book(table, { sheet: "台股爆量分析" });
-  XLSX.writeFile(wb, "台股爆量分析.xlsx");
-}	
-
-async function loadData() {
-  const pageSize = 1000;
-  let allData = [];
-  let totalCount = 0;
-
-  // 先查總筆數
-  const { count, error: countError } = await supabase
-    .from("volume_alerts")
-    .select("*", { count: "exact", head: true });
-
-  if (countError) {
-    console.error("查詢總筆數失敗：", countError.message);
-    return;
-  }
-
-  totalCount = count;
-  console.log("總資料數量：", totalCount);
-
-  // 分批撈資料
-  for (let from = 0; from < totalCount; from += pageSize) {
-    const to = Math.min(from + pageSize - 1, totalCount - 1);
-    const { data, error } = await supabase
-      .from("volume_alerts")
-      .select("*")
-      .order("trade_date", { ascending: false })
-      .range(from, to);
-
-    if (error) {
-      console.error(`載入第 ${from}~${to} 筆失敗：`, error.message);
-      break;
-    }
-
-    allData = allData.concat(data);
-  }
-
-  console.log("實際載入筆數：", allData.length);
-  stockData = allData;
-  renderTable();
-}
-
     const tableBody = document.querySelector("#stock-table tbody");
     const searchInput = document.querySelector("#search");
     const ctx = document.getElementById("volumeChart").getContext("2d");
     let chart;
 
-    function renderTable(filter = "") {
-        tableBody.innerHTML = "";
-        const keyword = filter.toLowerCase();
-      
-        const startDate = document.getElementById("start-date").value;
-        const endDate = document.getElementById("end-date").value;
-        const positiveChangeOnly = document.getElementById("positive-change").checked;
-        const positivelarge = document.getElementById("positive-large").checked;
-        const sortByCode = document.getElementById("sort-by-code").checked;
-      
-        let filtered = stockData.filter(stock => {
-          const change = stock.close - stock.open;
-          const codeMatch = stock.code.includes(keyword) || stock.name.includes(keyword);
-      
-          // 日期過濾
-          const date = stock.trade_date.slice(0, 10); // e.g. "2025-05-02"
-          const afterStart = !startDate || date >= startDate;
-          const beforeEnd = !endDate || date <= endDate;
-          
-          // 漲跌過濾
-          const isPositive = !positiveChangeOnly || change > 0;
-          const ratio = stock.volume / stock.avg_5;
-          const isPositivel = !positivelarge || ratio >= 1.99;
-      
-          return codeMatch && afterStart && beforeEnd && isPositive && isPositivel;
-        });
-      
-        // 排序
-        if (sortByCode) {
-          filtered = filtered.sort((a, b) => a.code.localeCompare(b.code));
-        }
-      
-        const labels = [], volumes = [], avgs = [];
-      
-        filtered.forEach(stock => {
-          const ratio = stock.volume / stock.avg_5;
-          const change = stock.close - stock.open;
-          const changep = change / stock.open *100;
-          const row = document.createElement("tr");
-          row.classList.add("highlight");
-          row.innerHTML = `
-            <td>${stock.code}</td>
-            <td>${stock.name}</td>
-            <td>${stock.trade_date}</td>
-            <td>${stock.open.toLocaleString()}</td>
-            <td>${stock.close.toLocaleString()}</td>
-            <td>${stock.volume.toLocaleString()}</td>
-            <td>${stock.avg_5.toLocaleString()}</td>
-            <td>${ratio.toFixed(2)} 倍</td>
-            <td>${change.toLocaleString()}</td>
-            <td>${changep.toFixed(2)}</td>
-          `;
-          tableBody.appendChild(row);
-      
-          labels.push(`${stock.name} (${stock.code})`);
-          volumes.push(stock.volume);
-          avgs.push(stock.avg_5);
-        });
-      
-        renderChart(labels, volumes, avgs);
+    // ✅ 匯出 Excel
+    function exportToExcel() {
+      const table = document.getElementById("stock-table");
+      const wb = XLSX.utils.table_to_book(table, { sheet: "台股爆量分析" });
+      XLSX.writeFile(wb, "台股爆量分析.xlsx");
+    }
+
+    // ✅ 從 Supabase 分批載入資料
+    async function loadData() {
+      const pageSize = 1000;
+      let allData = [];
+      const { count } = await supabase.from("volume_alerts").select("*", { count: "exact", head: true });
+
+      for (let from = 0; from < count; from += pageSize) {
+        const { data } = await supabase
+          .from("volume_alerts")
+          .select("*")
+          .order("trade_date", { ascending: false })
+          .range(from, from + pageSize - 1);
+        allData = allData.concat(data);
       }
+      stockData = allData;
+      renderTable();
+    }
+
+    // ✅ 主表格渲染 + 搜尋過濾（支援 * 萬用字元）
+    function renderTable(filter = "") {
+      tableBody.innerHTML = "";
+      const keyword = filter.trim().toLowerCase();
+
+      const wildcardRegex = keyword
+        ? new RegExp("^" + keyword.replace(/\*/g, ".*") + "$", "i")
+        : null;
+
+      const startDate = document.getElementById("start-date").value;
+      const endDate = document.getElementById("end-date").value;
+      const positiveChangeOnly = document.getElementById("positive-change").checked;
+      const positiveLarge = document.getElementById("positive-large").checked;
+      const sortByCode = document.getElementById("sort-by-code").checked;
+
+      let filtered = stockData.filter(stock => {
+        const change = stock.close - stock.open;
+        const date = stock.trade_date.slice(0, 10);
+        const ratio = stock.volume / stock.avg_5;
+
+        const codeMatch =
+          !keyword ||
+          wildcardRegex.test(stock.code) ||
+          wildcardRegex.test(stock.name);
+
+        return (
+          codeMatch &&
+          (!startDate || date >= startDate) &&
+          (!endDate || date <= endDate) &&
+          (!positiveChangeOnly || change > 0) &&
+          (!positiveLarge || ratio >= 2)
+        );
+      });
+
+      if (sortByCode) {
+        filtered.sort((a, b) => a.code.localeCompare(b.code));
+      }
+
+      const labels = [], volumes = [], avgs = [];
+
+      filtered.forEach(stock => {
+        const ratio = stock.volume / stock.avg_5;
+        const change = stock.close - stock.open;
+        const changePercent = ((change / stock.open) * 100).toFixed(2);
+
+        const row = document.createElement("tr");
+        row.classList.add("highlight");
+        row.innerHTML = `
+          <td>${stock.code}</td>
+          <td>${stock.name}</td>
+          <td>${stock.trade_date}</td>
+          <td>${stock.open.toLocaleString()}</td>
+          <td>${stock.close.toLocaleString()}</td>
+          <td>${stock.volume.toLocaleString()}</td>
+          <td>${stock.avg_5.toLocaleString()}</td>
+          <td>${ratio.toFixed(2)} 倍</td>
+          <td>${change.toLocaleString()}</td>
+          <td>${changePercent}%</td>
+        `;
+        tableBody.appendChild(row);
+
+        labels.push(`${stock.name} (${stock.code})`);
+        volumes.push(stock.volume);
+        avgs.push(stock.avg_5);
+      });
+
+      renderChart(labels, volumes, avgs);
+    }
 
     function renderChart(labels, volumes, avgs) {
       if (chart) chart.destroy();
       chart = new Chart(ctx, {
         type: "bar",
         data: {
-          labels: labels,
+          labels,
           datasets: [
             { label: "成交量", data: volumes, backgroundColor: "rgba(75, 192, 192, 0.6)" },
             { label: "五日均量", data: avgs, backgroundColor: "rgba(255, 159, 64, 0.6)" }
           ]
         },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { position: 'top' },
-            title: { display: true, text: '成交量 vs 五日均量' }
-          }
-        }
+        options: { responsive: true }
       });
     }
 
     function applyFilters() {
-        const keyword = searchInput.value.trim();
-        renderTable(keyword);
-      }
+      renderTable(searchInput.value);
+    }
 
-    searchInput.addEventListener("input", () => {
-      renderTable(searchInput.value.trim());
-    });
-
-    loadData(); // 初始載入
+    searchInput.addEventListener("input", () => renderTable(searchInput.value));
+    loadData();
   </script>
-
 </body>
 </html>
-
